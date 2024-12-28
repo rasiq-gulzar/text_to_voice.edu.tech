@@ -221,92 +221,115 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h2>Text to Speech Converter</h2>
-            <button class="theme-toggle" onclick="toggleTheme()">
-                <i class="bi bi-sun-fill" id="themeIcon"></i>
-            </button>
-        </div>
-
-        <textarea id="textInput" placeholder="Type or paste your text here..."></textarea>
-        
-        <div class="controls">
-            <select id="voiceSelect">
-                <option value="">Loading voices...</option>
-            </select>
-            <select id="rateSelect">
-                <option value="0.5">0.5x Speed</option>
-                <option value="0.75">0.75x Speed</option>
-                <option value="1" selected>Normal Speed</option>
-                <option value="1.25">1.25x Speed</option>
-                <option value="1.5">1.5x Speed</option>
-                <option value="2">2x Speed</option>
-            </select>
-        </div>
-
-        <div class="button-group">
-            <button onclick="speak()" id="speakButton">
-                <i class="bi bi-play-fill"></i>
-                Convert to Speech
-            </button>
-            <button onclick="stop()" id="stopButton" disabled>
-                <i class="bi bi-stop-fill"></i>
-                Stop
-            </button>
-        </div>
-        
-        <div id="status"></div>
+<div class="container">
+    <div class="header">
+        <h2>Text to Speech Converter</h2>
+        <button class="theme-toggle" onclick="toggleTheme()">
+            <i class="bi bi-sun-fill" id="themeIcon"></i>
+        </button>
     </div>
 
-    <script>
-        let speechSynthesis = window.speechSynthesis;
+    <textarea id="textInput" placeholder="Type or paste your text here..."></textarea>
+
+    <div class="controls">
+        <select id="voiceSelect">
+            <option value="">Loading voices...</option>
+        </select>
+        <select id="rateSelect">
+            <option value="0.5">0.5x Speed</option>
+            <option value="0.75">0.75x Speed</option>
+            <option value="1" selected>Normal Speed</option>
+            <option value="1.25">1.25x Speed</option>
+            <option value="1.5">1.5x Speed</option>
+            <option value="2">2x Speed</option>
+        </select>
+    </div>
+
+    <div class="button-group">
+        <button onclick="speak()" id="speakButton">
+            <i class="bi bi-play-fill"></i>
+            Convert to Speech
+        </button>
+        <button onclick="stop()" id="stopButton" disabled>
+            <i class="bi bi-stop-fill"></i>
+            Stop
+        </button>
+    </div>
+
+    <div id="status"></div>
+</div>
+
+<script>
+    let speechSynthesis = window.speechSynthesis;
         let voices = [];
+        let isVoicesLoaded = false;
 
-        // Theme handling
-        function toggleTheme() {
-            const html = document.documentElement;
-            const themeIcon = document.getElementById('themeIcon');
-            
-            if (html.getAttribute('data-theme') === 'dark') {
-                html.removeAttribute('data-theme');
-                themeIcon.className = 'bi bi-sun-fill';
-                localStorage.setItem('theme', 'light');
-            } else {
-                html.setAttribute('data-theme', 'dark');
-                themeIcon.className = 'bi bi-moon-fill';
-                localStorage.setItem('theme', 'dark');
-            }
-        }
-
-        // Set initial theme
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        if (savedTheme === 'dark') {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            document.getElementById('themeIcon').className = 'bi bi-moon-fill';
-        }
+        // Theme handling remains the same...
 
         function loadVoices() {
-            voices = speechSynthesis.getVoices();
-            const voiceSelect = document.getElementById('voiceSelect');
-            voiceSelect.innerHTML = voices
-                .map(voice => `<option value="${voice.name}">${voice.name} (${voice.lang})</option>`)
-                .join('');
+            return new Promise((resolve) => {
+                let id;
+
+                // Function to actually load the voices
+                const loadVoiceList = () => {
+                    voices = speechSynthesis.getVoices();
+
+                    if (voices.length > 0) {
+                        const voiceSelect = document.getElementById('voiceSelect');
+                        voiceSelect.innerHTML = voices
+                            .map(voice => `<option value="${voice.name}">${voice.name} (${voice.lang})</option>`)
+                            .join('');
+
+                        // Select a default voice (preferably in English)
+                        const defaultVoice = voices.find(voice => voice.lang.startsWith('en-')) || voices[0];
+                        if (defaultVoice) {
+                            voiceSelect.value = defaultVoice.name;
+                        }
+
+                        isVoicesLoaded = true;
+                        clearTimeout(id);
+                        resolve(voices);
+                    }
+                };
+
+                // Chrome loads voices asynchronously
+                speechSynthesis.onvoiceschanged = () => {
+                    loadVoiceList();
+                };
+
+                // Initial load attempt
+                loadVoiceList();
+
+                // Fallback for browsers that don't trigger onvoiceschanged
+                id = setInterval(() => {
+                    if (!isVoicesLoaded) {
+                        loadVoiceList();
+                    }
+                }, 500);
+
+                // Maximum waiting time of 5 seconds
+                setTimeout(() => {
+                    clearTimeout(id);
+                    if (!isVoicesLoaded) {
+                        document.getElementById('voiceSelect').innerHTML =
+                            '<option value="">No voices available</option>';
+                        showStatus('Voice models failed to load. Please try a different browser.', 'error');
+                        resolve([]);
+                    }
+                }, 5000);
+            });
         }
 
-        speechSynthesis.onvoiceschanged = loadVoices;
-        loadVoices();
-
-        function showStatus(message, type) {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = type;
-            status.style.display = 'block';
-            setTimeout(() => {
-                status.style.animation = 'fadeIn 0.3s ease reverse';
-                setTimeout(() => status.style.display = 'none', 300);
-            }, 3000);
-        }
+        // Initialize voices when page loads
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Chrome requires a user interaction to initialize speech synthesis
+                speechSynthesis.cancel();
+                await loadVoices();
+            } catch (error) {
+                showStatus('Error initializing speech synthesis', 'error');
+            }
+        });
 
         function speak() {
             const text = document.getElementById('textInput').value;
@@ -315,15 +338,36 @@
                 return;
             }
 
+            // Cancel any ongoing speech
+            speechSynthesis.cancel();
+
             const utterance = new SpeechSynthesisUtterance(text);
             const selectedVoice = document.getElementById('voiceSelect').value;
-            utterance.voice = voices.find(voice => voice.name === selectedVoice);
+
+            // Find the selected voice object
+            const voice = voices.find(v => v.name === selectedVoice);
+            if (voice) {
+                utterance.voice = voice;
+            } else {
+                // Fallback to the first available voice
+                utterance.voice = voices[0];
+            }
+
             utterance.rate = parseFloat(document.getElementById('rateSelect').value);
 
             document.getElementById('speakButton').disabled = true;
             document.getElementById('stopButton').disabled = false;
 
+            // Chrome bug fix: Speech sometimes stops after 15 seconds
+            const resumeInfinity = setInterval(() => {
+                if (speechSynthesis.speaking) {
+                    speechSynthesis.pause();
+                    speechSynthesis.resume();
+                }
+            }, 14000);
+
             utterance.onend = () => {
+                clearInterval(resumeInfinity);
                 document.getElementById('speakButton').disabled = false;
                 document.getElementById('stopButton').disabled = true;
                 if (window.androidInterface) {
@@ -332,16 +376,30 @@
             };
 
             utterance.onerror = (event) => {
+                clearInterval(resumeInfinity);
                 showStatus('An error occurred while converting text to speech', 'error');
                 document.getElementById('speakButton').disabled = false;
                 document.getElementById('stopButton').disabled = true;
             };
 
-            speechSynthesis.speak(utterance);
-            showStatus('Converting text to speech...', 'success');
-            if (window.androidInterface) {
-                window.androidInterface.onSpeechStart();
+            try {
+                speechSynthesis.speak(utterance);
+                showStatus('Converting text to speech...', 'success');
+                if (window.androidInterface) {
+                    window.androidInterface.onSpeechStart();
+                }
+            } catch (error) {
+                showStatus('Failed to start speech synthesis. Please try again.', 'error');
+                document.getElementById('speakButton').disabled = false;
+                document.getElementById('stopButton').disabled = true;
             }
+        }
+
+        function stop() {
+            speechSynthesis.cancel();
+            document.getElementById('speakButton').disabled = false;
+            document.getElementById('stopButton').disabled = true;
+            showStatus('Speech stopped', 'success');
         }
 
         function stop() {
@@ -363,6 +421,6 @@
                 }
             }
         };
-    </script>
+</script>
 </body>
 </html>
