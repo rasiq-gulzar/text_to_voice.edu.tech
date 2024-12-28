@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text to Speech</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+            /* Light theme */
+            --primary-color: #6200ee;
+            --primary-hover: #3700b3;
+            --background: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --success-bg: #dcfce7;
+            --success-text: #166534;
+            --error-bg: #fee2e2;
+            --error-text: #991b1b;
+        }
+
+        [data-theme="dark"] {
+            --primary-color: #bb86fc;
+            --primary-hover: #985eff;
+            --background: #121212;
+            --card-bg: #1e1e1e;
+            --text-primary: #ffffff;
+            --text-secondary: #a0aec0;
+            --border-color: #2d3748;
+            --success-bg: #064e3b;
+            --success-text: #6ee7b7;
+            --error-bg: #7f1d1d;
+            --error-text: #fca5a5;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body {
+            font-family: 'Roboto', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--background);
+            color: var(--text-primary);
+            line-height: 1.5;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 1.5rem;
+            padding: 8px;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+
+        .theme-toggle:hover {
+            background-color: rgba(128, 128, 128, 0.1);
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 1rem;
+            color: var(--text-primary);
+            background-color: var(--card-bg);
+            transition: all 0.2s ease;
+            resize: vertical;
+            margin-bottom: 1rem;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(98, 0, 238, 0.1);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 16px;
+            margin-bottom: 1.5rem;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            background-color: var(--card-bg);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 1rem;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        #speakButton {
+            background-color: var(--primary-color);
+            color: white;
+            flex: 2;
+        }
+
+        #speakButton:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+        }
+
+        #stopButton {
+            background-color: #ef4444;
+            color: white;
+            flex: 1;
+        }
+
+        #stopButton:hover:not(:disabled) {
+            background-color: #dc2626;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        #status {
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            margin-top: 1rem;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .success {
+            background-color: var(--success-bg);
+            color: var(--success-text);
+        }
+
+        .error {
+            background-color: var(--error-bg);
+            color: var(--error-text);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 640px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            .container {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Text to Speech Converter</h2>
+            <button class="theme-toggle" onclick="toggleTheme()">
+                <i class="bi bi-sun-fill" id="themeIcon"></i>
+            </button>
+        </div>
+
+        <textarea id="textInput" placeholder="Type or paste your text here..."></textarea>
+        
+        <div class="controls">
+            <select id="voiceSelect">
+                <option value="">Loading voices...</option>
+            </select>
+            <select id="rateSelect">
+                <option value="0.5">0.5x Speed</option>
+                <option value="0.75">0.75x Speed</option>
+                <option value="1" selected>Normal Speed</option>
+                <option value="1.25">1.25x Speed</option>
+                <option value="1.5">1.5x Speed</option>
+                <option value="2">2x Speed</option>
+            </select>
+        </div>
+
+        <div class="button-group">
+            <button onclick="speak()" id="speakButton">
+                <i class="bi bi-play-fill"></i>
+                Convert to Speech
+            </button>
+            <button onclick="stop()" id="stopButton" disabled>
+                <i class="bi bi-stop-fill"></i>
+                Stop
+            </button>
+        </div>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        let speechSynthesis = window.speechSynthesis;
+        let voices = [];
+
+        // Theme handling
+        function toggleTheme() {
+            const html = document.documentElement;
+            const themeIcon = document.getElementById('themeIcon');
+            
+            if (html.getAttribute('data-theme') === 'dark') {
+                html.removeAttribute('data-theme');
+                themeIcon.className = 'bi bi-sun-fill';
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                themeIcon.className = 'bi bi-moon-fill';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Set initial theme
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeIcon').className = 'bi bi-moon-fill';
+        }
+
+        function loadVoices() {
+            voices = speechSynthesis.getVoices();
+            const voiceSelect = document.getElementById('voiceSelect');
+            voiceSelect.innerHTML = voices
+                .map(voice => `<option value="${voice.name}">${voice.name} (${voice.lang})</option>`)
+                .join('');
+        }
+
+        speechSynthesis.onvoiceschanged = loadVoices;
+        loadVoices();
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = type;
+            status.style.display = 'block';
+            setTimeout(() => {
+                status.style.animation = 'fadeIn 0.3s ease reverse';
+                setTimeout(() => status.style.display = 'none', 300);
+            }, 3000);
+        }
+
+        function speak() {
+            const text = document.getElementById('textInput').value;
+            if (!text) {
+                showStatus('Please enter some text to convert', 'error');
+                return;
+            }
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            const selectedVoice = document.getElementById('voiceSelect').value;
+            utterance.voice = voices.find(voice => voice.name === selectedVoice);
+            utterance.rate = parseFloat(document.getElementById('rateSelect').value);
+
+            document.getElementById('speakButton').disabled = true;
+            document.getElementById('stopButton').disabled = false;
+
+            utterance.onend = () => {
+                document.getElementById('speakButton').disabled = false;
+                document.getElementById('stopButton').disabled = true;
+                if (window.androidInterface) {
+                    window.androidInterface.onSpeechEnd();
+                }
+            };
+
+            utterance.onerror = (event) => {
+                showStatus('An error occurred while converting text to speech', 'error');
+                document.getElementById('speakButton').disabled = false;
+                document.getElementById('stopButton').disabled = true;
+            };
+
+            speechSynthesis.speak(utterance);
+            showStatus('Converting text to speech...', 'success');
+            if (window.androidInterface) {
+                window.androidInterface.onSpeechStart();
+            }
+        }
+
+        function stop() {
+            speechSynthesis.cancel();
+            document.getElementById('speakButton').disabled = false;
+            document.getElementById('stopButton').disabled = true;
+            showStatus('Speech stopped', 'success');
+        }
+
+        window.androidInterface = {
+            onSpeechStart: function() {
+                if (window.Android) {
+                    window.Android.onSpeechStart();
+                }
+            },
+            onSpeechEnd: function() {
+                if (window.Android) {
+                    window.Android.onSpeechEnd();
+                }
+            }
+        };
+    </script>
+</body>
+</html>
